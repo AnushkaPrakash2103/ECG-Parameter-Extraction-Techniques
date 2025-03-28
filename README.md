@@ -1,6 +1,7 @@
 ECG Parameter Extraction using DWTAE
 
 **Overview**
+
 This project implements ECG feature extraction using the Discrete Wavelet Transform Automated Extraction (DWTAE) algorithm in MATLAB. It efficiently detects key ECG parameters such as QRS complexes, P waves, and T waves, even in noisy environments, making it useful for cardiac diagnosis.
 
 **Usage**
