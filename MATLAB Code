@@ -1,0 +1,131 @@
+% Load ECG signal
+load ecg; 
+
+fs = 360;
+t = (0:length(ecg)-1) / fs;  
+
+baseline_freq = 0.5; 
+baseline_amplitude = 0.1 * max(ecg);  
+t_prime = t';
+
+baseline_drift = baseline_amplitude * sin(2 * pi * baseline_freq * t_prime);
+
+
+ecg_with_baseline_drift = ecg + baseline_drift;
+
+%% Step 1: Plot Original ECG Signal
+% Plot the original ECG signal before any processing
+subplot(2,2,1);
+plot(t,ecg_with_baseline_drift);
+title('Original ECG Signal');
+xlabel('Time (s)');
+ylabel('Amplitude (V)');
+grid on;
+
+%% Step 2: Baseline Drift Removal using DWT
+[C, L] = wavedec(ecg_with_baseline_drift, 8, 'sym4'); 
+
+cA = appcoef(C, L, 'sym4', 8);  % Approximation at level 8
+cD8 = detcoef(C, L, 8);  % Detail coefficients at level 8
+cD7 = detcoef(C, L, 7);
+cD6 = detcoef(C, L, 6);
+cD5 = detcoef(C, L, 5);
+cD4 = detcoef(C, L, 4);
+cD3 = detcoef(C, L, 3);
+cD2 = detcoef(C, L, 2);
+cD1 = detcoef(C, L, 1);
+
+cA (1:end) = 0;  
+C_new = [cA;cD8;cD7;cD6;cD5;cD4;cD3;cD2;cD1];
+
+ecg_baseline_removed = waverec(C_new, L, 'sym4');
+% Plot the signal after baseline drift removal 
+subplot(2,2,2);
+plot(t,ecg_baseline_removed);
+title('ECG Signal After Baseline Drift Removal');
+xlabel('Time (s)');
+ylabel('Amplitude (V)');
+grid on;
+
+%% Step 3: Signal Denoising using Soft Thresholding
+% Decompose the signal into detail coefficients
+[C, L] = wavedec(ecg_baseline_removed, 8, 'sym4');
+
+sigma = median(abs(C(length(cA)+1:end))) / 0.6745; 
+threshold = sigma * sqrt(2 * log(length(ecg_baseline_removed))); 
+
+cA = appcoef(C, L, 'sym4', 8);  
+C_thresh = wthresh(C, 's', threshold);
+C_thresh(1:length(cA)) = cA;
+
+ecg_denoised = waverec(C_thresh, L, 'sym4');
+% Plot the denoised ECG signal
+subplot(2,2,3);
+plot(t,ecg_denoised);
+title('ECG Signal After Denoising');
+xlabel('Time (s)');
+ylabel('Amplitude (V)');
+grid on;
+
+%% Step 4: R-Peak Detection
+R_peak_threshold = 0.75 * max(ecg_denoised);
+
+R_peak_candidates = find(ecg_denoised > R_peak_threshold);
+
+R_peaks = [];
+
+for i = 1:length(R_peak_candidates)
+   if ecg_denoised(R_peak_candidates(i))>ecg_denoised(R_peak_candidates(i)-1) && ecg_denoised(R_peak_candidates(i))>ecg_denoised(R_peak_candidates(i)+1)
+       R_peaks = [R_peaks, R_peak_candidates(i)];
+   end
+end
+
+%T-wave P-wave detection
+RR_intervals = diff(R_peaks) / fs; 
+
+T_wave = [];
+P_wave = [];
+
+% T-wave detection
+for i = 1:length(RR_intervals)
+   RR = RR_intervals(i); 
+   if RR > 0.7
+       T_start = R_peaks(i) + round(0.08 * fs); 
+       T_end = R_peaks(i) + round(0.44 * fs); 
+   else
+       T_start = R_peaks(i) + round(0.04 * fs); 
+       T_end = R_peaks(i) + round((0.7 * RR - 0.06) * fs); 
+   end
+   [T_wave_val, T_wave_loc] = max(ecg_denoised(T_start:T_end));
+   if ~isempty(T_wave_loc) 
+       T_wave = [T_wave; T_wave_loc + T_start - 1]; 
+   end
+
+   % P-wave detection 
+   if i < length(R_peaks) - 1 && ~isempty(T_wave)
+       P_start = T_end; 
+       P_end = R_peaks(i+1) - round(0.08 * fs); 
+
+       [P_wave_val, P_wave_loc] = max(ecg_denoised(P_start:P_end));
+       P_wave = [P_wave; P_wave_loc + P_start - 1]; % Store P-wave location
+   end
+end
+
+%% Step 6: Final Plot with R, T, and P Waves Marked
+subplot(2,2,4);
+plot(t,ecg_denoised); 
+hold on;
+% Mark the R-peaks
+plot(R_peaks/fs, ecg_denoised(R_peaks), 'ro', 'MarkerFaceColor', 'r');
+% Mark the T-waves
+plot(T_wave/fs, ecg_denoised(T_wave), 'g^', 'MarkerFaceColor', 'g');
+% Mark the P-waves
+plot(P_wave/fs, ecg_denoised(P_wave), 'b^', 'MarkerFaceColor', 'b');
+% Plot settings
+title('ECG Signal with R, T, and P-Waves Marked');
+xlabel('Time (s)');
+ylabel('Amplitude (V)');
+legend('ECG Signal', 'R-Peaks', 'T-Waves', 'P-Waves');
+grid on;
+hold off;
+
