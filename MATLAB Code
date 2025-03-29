@@ -129,10 +129,17 @@ legend('ECG Signal', 'R-Peaks', 'T-Waves', 'P-Waves');
 grid on;
 hold off;
 
-%% Step 7: Feature Extraction for ML
-features = [mean(RR_intervals), std(RR_intervals), max(RR_intervals), min(RR_intervals), length(R_peaks)];
-labels = 1; % Placeholder: Replace with actual classification labels (e.g., normal/abnormal)
+%% Feature Extraction and Classification
+features = [mean(RR_intervals), std(RR_intervals), max(RR_intervals), min(RR_intervals)];
+labels = [1]; % Placeholder label for training, 1 = Normal
 
-dataset = [features, labels];
+% Train an SVM model
+SVMModel = fitcsvm(features, labels, 'KernelFunction', 'linear');
 
-save('ecg_features.mat', 'dataset');
+% Predict using the trained model
+predicted_label = predict(SVMModel, features);
+if predicted_label == 1
+    disp('ECG is Normal');
+else
+    disp('ECG is Abnormal');
+end
