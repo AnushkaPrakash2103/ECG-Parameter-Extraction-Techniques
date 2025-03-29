@@ -16,7 +16,7 @@ This project implements ECG feature extraction using the Discrete Wavelet Transf
 
 - *Algorithm*: Discrete Wavelet Transform (DWT)
 
-- Machine Learning (SVM)
+- *Machine Learning*: Support Vector Machine (SVM)
 
 **Applications**
 - Can be used for cardiac disease detection and health monitoring systems.
