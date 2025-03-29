@@ -129,3 +129,10 @@ legend('ECG Signal', 'R-Peaks', 'T-Waves', 'P-Waves');
 grid on;
 hold off;
 
+%% Step 7: Feature Extraction for ML
+features = [mean(RR_intervals), std(RR_intervals), max(RR_intervals), min(RR_intervals), length(R_peaks)];
+labels = 1; % Placeholder: Replace with actual classification labels (e.g., normal/abnormal)
+
+dataset = [features, labels];
+
+save('ecg_features.mat', 'dataset');
